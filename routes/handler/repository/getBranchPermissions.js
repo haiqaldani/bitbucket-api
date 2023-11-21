@@ -1,7 +1,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-const filePath = "list-repo.csv";
+const filePath = "onprem_repository.csv";
 const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
@@ -25,8 +25,11 @@ module.exports = async (req, res) => {
 
     const requests = [];
     dataStream.on("data", async function (row) {
-      const project_key = row[2];
-      const repo_slug = row[1];
+      const project = row[8];
+      const repo_slug = row[0];
+
+      const projectJson = JSON.parse(project);
+      const project_key = projectJson.key;
 
       requests.push({
         project_key: project_key,
@@ -49,7 +52,7 @@ module.exports = async (req, res) => {
         );
 
         const r = reviewer.data;
-        console.log(repo_slug);
+        console.log(`Branch Permission: ${project_key} with ${repo_slug}`);
 
         if (r.values.length !== 0) {
           if (r.isLastPage === false) {

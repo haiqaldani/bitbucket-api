@@ -1,12 +1,12 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-
+const filePath = "list-repo.csv";
+const targetPath = "default-reviewers.csv";
 const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
   const payload = req.body;
-  const filePath = `${payload.workspace}_project.csv`;
 
   try {
     const headers = {
@@ -26,10 +26,12 @@ module.exports = async (req, res) => {
 
     const requests = [];
     dataStream.on("data", async function (row) {
-      const project_key = row[3];
+      const repo_slug = row[1];
+      const project_key = row[2];
 
       requests.push({
         project_key: project_key,
+        repo_slug: repo_slug,
       });
     });
 
@@ -38,42 +40,45 @@ module.exports = async (req, res) => {
 
       for (let index = 0; index < requests.length; index++) {
         const project_key = requests[index].project_key;
+        const repo_slug = requests[index].repo_slug;
 
         const reviewer = await axios.get(
-          `http://${payload.server}/rest/api/latest/projects/${project_key}/permissions/users?limit=100`,
+          `http://${payload.server}/rest/default-reviewers/latest/projects/${project_key}/repos/${repo_slug}/conditions`,
           {
             headers,
           }
         );
 
-        console.log(project_key);
 
         const r = reviewer.data;
+        console.log(repo_slug);
 
-        if (r.values.length !== 0) {
-          for (let i = 0; i < r.values.length; i++) {
-            const userParse = r.values[i].user;
+        if (r.length !== 0) {
+          for (let i = 0; i < r[0].reviewers.length; i++) {
+            const userParse = r[0].reviewers[i];
             const userEmail = userParse.emailAddress;
             const userDisplayName = userParse.displayName;
             const userName = userParse.name;
-            const dataR = {
+            const dataAll = {
               name: userName,
               email: userEmail,
-              displayName: userDisplayName,
+              display_name: userDisplayName,
               project_key: project_key,
-              permission: r.values[i].permission,
+              repo_slug: repo_slug,
             };
-            data.push(dataR);
+            data.push(dataAll);
           }
         }
       }
 
-      // console.log(data);
-
       if (data.length !== 0) {
         const csvData = await parseAsync(data);
 
-        fs.writeFileSync(`permission_project_${payload.workspace}.csv`, csvData, "utf-8");
+        fs.writeFileSync(
+          `default_reviewer_repo_${payload.min}-${payload.max}.csv`,
+          csvData,
+          "utf-8"
+        );
 
         return res.status(200).json({
           status: "Success",
@@ -98,7 +103,7 @@ module.exports = async (req, res) => {
     return res.status(400).json({
       status: "error",
       statusCode: 400,
-      message: error.message,
+      message: error,
     });
   }
 };

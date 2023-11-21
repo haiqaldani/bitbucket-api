@@ -1,20 +1,22 @@
 const check = require("./checkRepository");
-const getAll = require("./getListRepoCloud");
-const getBulk = require("./getBulkRepository");
+const getAllCloud = require("./getListRepoCloud");
+const getAll = require("./getListRepo");
 const getBranchPerm = require("./getBranchPermissions");
 const getRepoPerm = require("./getPermissionsRepo");
 const getRepoPermCloud = require("./getPermissionsRepoCloud");
 const getDefaultRev = require("./getDefaultReviewers");
-const assignAdminRepo = require("./permRepoFromProject");
+const assignProjectPermissions = require("./assignProjectPermissions");
+const assignBranch = require("./assignBranchPermissions");
 
 module.exports = {
   check,
   getAll,
-  getBulk,
+  getAllCloud,
   getBranchPerm,
   getRepoPerm,
   getDefaultRev,
   getRepoPermCloud,
-  assignAdminRepo,
+  assignBranch,
+  assignProjectPermissions
 
 };

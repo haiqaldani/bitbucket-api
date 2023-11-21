@@ -1,6 +1,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parseAsync } = require("json2csv");
+const { last } = require("lodash");
 
 module.exports = async (req, res) => {
   const payload = req.body;
@@ -11,44 +12,41 @@ module.exports = async (req, res) => {
       Accept: "application/json",
     };
 
-    const dataCSV = [];
+    let start = 0;
+    let allProjects = [];
+    let isLastPage = false;
 
-    const dataSize = await axios.get(`https://api.bitbucket.org/2.0/repositories/${payload.workspace}?pagelen=100`, { headers });
-
-    console.log(dataSize.data.size);
-
-    const size = Math.ceil(dataSize.data.size / 100);
-
-    for (let i = 1; i <= size; i++) {
-      const apiUrl = `https://api.bitbucket.org/2.0/repositories/${payload.workspace}?page=${i}&pagelen=100`;
-
-      console.log(i);
+    while (isLastPage === false) {
+      const apiUrl = `http://${payload.server}/rest/api/latest/projects?limit=100&&start=${start}`;
 
       const data = await axios.get(apiUrl, { headers });
 
       const jsonData = data.data.values;
 
-      if (i === 1) {
-        dataCSV.push(...jsonData);
+      allProjects.push(...jsonData);
+
+      console.log(start);
+
+      if (jsonData.length < 100) {
+        isLastPage = true;
       } else {
-        dataCSV.push(...jsonData.slice(1));
+        start += 100;
       }
     }
 
-    const filePath = `${payload.workspace}_repository.csv`;
+    const filePath = `onprem_project.csv`;
 
-    const csvData = await parseAsync(dataCSV);
+    const csvData = await parseAsync(allProjects);
 
     fs.writeFileSync(filePath, csvData, "utf-8");
 
     return res.status(200).json({
       status: "success",
       statusCode: 200,
-      message: `Get All Repository in Workspace ${payload.workspace} Success`,
-      data : {
-        totalPage: size,
-        totalRepository: dataSize.data.size
-      }
+      message: `Get All Project in On Prem Success`,
+      data: {
+        totalProject: allProjects.length,
+      },
     });
   } catch (error) {
     if (error.code === "ECONNREFUSED") {

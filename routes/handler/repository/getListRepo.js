@@ -1,7 +1,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-const filePath = "branch.csv";
+const filePath = "onprem_project.csv";
 const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
@@ -18,42 +18,52 @@ module.exports = async (req, res) => {
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min) + 1,
-        to_line: parseInt(payload.max) + 1,
+        from_line: 2,
+        to_line: 999999,
       })
     );
 
     const requests = [];
     dataStream.on("data", async function (row) {
       const project_key = row[0];
-      const repo_slug = row[5];
 
       requests.push({
         project_key: project_key,
-        repo_slug: repo_slug,
       });
     });
 
     dataStream.on("end", async function () {
       await Promise.all(requests);
 
+      console.log(requests);
+
       for (let index = 0; index < requests.length; index++) {
         const project_key = requests[index].project_key;
-        const repo_slug = requests[index].repo_slug;
 
-        const data = {
-          
+        let start = 0;
+        let isLastPage = false;
+
+        while (isLastPage === false) {
+          const apiUrl = `http://${payload.server}/rest/api/latest/projects/${project_key}/repos?limit=100&start=${start}`;
+
+          const r = await axios.get(apiUrl, { headers });
+
+          const jsonData = r.data.values;
+
+          data.push(...jsonData);
+
+          console.log(start);
+
+          if (jsonData.length < 100) {
+            isLastPage = true;
+          } else {
+            start += 100;
+          }
         }
 
-        const reviewer = await axios.post(
-          `https://api.bitbucket.org/2.0/repositories/${payload.workspace}/${repo_slug}/branch-restrictions`,
-          {
-            headers,
-          },
-          data
-        );
-
-        const r = reviewer.data;
+        // if (r.values.length !== 0) {
+        //   data.push(...r.values);
+        // }
       }
 
       // console.log(data);
@@ -61,11 +71,7 @@ module.exports = async (req, res) => {
       if (data.length !== 0) {
         const csvData = await parseAsync(data);
 
-        fs.writeFileSync(
-          `branch_${payload.min}-${payload.max}.csv`,
-          csvData,
-          "utf-8"
-        );
+        fs.writeFileSync(`onprem_repository.csv`, csvData, "utf-8");
 
         return res.status(200).json({
           status: "Success",

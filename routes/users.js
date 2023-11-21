@@ -3,8 +3,8 @@ const router = express.Router();
 
 const userHandler = require("./handler/users");
 
-router.post("/assignToGroup", userHandler.dGroup);
-router.post("/assignToProject", userHandler.dUsertoProject);
-router.post("/getAll", userHandler.dUsers);
+router.post("/group/assign", userHandler.dGroup);
+router.post("/project/assign", userHandler.dUsertoProject);
+router.post("/get-all", userHandler.dUsers);
 
 module.exports = router;

@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
         const project_key = requests[index].project_key;
 
         const reviewer = await axios.get(
-          `https://api.bitbucket.org/2.0/workspaces/${payload.workspace}/projects/${project_key}/permissions-config/users`,
+          `https://api.bitbucket.org/2.0/workspaces/${payload.workspace}/projects/${project_key}/permissions-config/users?pagelen=100`,
           {
             headers,
           }
@@ -72,7 +72,11 @@ module.exports = async (req, res) => {
       if (data.length !== 0) {
         const csvData = await parseAsync(data);
 
-        fs.writeFileSync(`permission_project_cloud_${payload.min}-${payload.max}.csv`, csvData, "utf-8");
+        fs.writeFileSync(
+          `permission_project_cloud_${payload.workspace}.csv`,
+          csvData,
+          "utf-8"
+        );
 
         return res.status(200).json({
           status: "Success",
