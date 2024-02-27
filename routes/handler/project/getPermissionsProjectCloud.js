@@ -18,8 +18,8 @@ module.exports = async (req, res) => {
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min),
-        to_line: parseInt(payload.max),
+        from_line: 2,
+        to_line: 999999,
       })
     );
 
@@ -38,31 +38,45 @@ module.exports = async (req, res) => {
       for (let index = 0; index < requests.length; index++) {
         const project_key = requests[index].project_key;
 
-        const reviewer = await axios.get(
-          `https://api.bitbucket.org/2.0/workspaces/${payload.workspace}/projects/${project_key}/permissions-config/users?pagelen=100`,
-          {
-            headers,
+        let start = 1;
+        let isLastPage = false;
+
+        while (isLastPage === false) {
+
+          const apiUrl = `https://api.bitbucket.org/2.0/workspaces/${payload.workspace}/projects/${project_key}/permissions-config/users?page=${start}&pagelen=100`;
+
+          const reviewer = await axios.get(apiUrl, { headers });
+
+          const size = Math.ceil(reviewer.data.size / 100);
+
+
+          console.log(`Size: ${size}`);
+
+          if (start === size || size === 0) {
+            isLastPage = true;
+          } else {
+            start += 1;
           }
-        );
 
-        console.log(project_key);
+          console.log(`Project Permission: ${project_key}`);
 
-        const r = reviewer.data;
+          const r = reviewer.data;
 
-        if (r.values.length !== 0) {
-          for (let i = 0; i < r.values.length; i++) {
-            const userParse = r.values[i].user;
-            const userUuid = userParse.uuid;
-            const userDisplayName = userParse.display_name;
-            const userId = userParse.account_id;
-            const dataR = {
-              displayName: userDisplayName,
-              uuid: userUuid,
-              accountId: userId,
-              project_key: project_key,
-              permission: r.values[i].permission,
-            };
-            data.push(dataR);
+          if (r.values.length !== 0) {
+            for (let i = 0; i < r.values.length; i++) {
+              const userParse = r.values[i].user;
+              const userUuid = userParse.uuid;
+              const userDisplayName = userParse.display_name;
+              const userId = userParse.account_id;
+              const dataR = {
+                displayName: userDisplayName,
+                uuid: userUuid,
+                accountId: userId,
+                project_key: project_key,
+                permission: r.values[i].permission,
+              };
+              data.push(dataR);
+            }
           }
         }
       }

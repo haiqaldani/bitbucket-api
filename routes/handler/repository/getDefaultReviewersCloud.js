@@ -1,8 +1,8 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-const filePath = "list-repo.csv";
-const targetPath = "default-reviewers.csv";
+const filePath = "onprem_repository.csv";
+const targetPath = "cloud_default-reviewers.csv";
 const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
@@ -19,18 +19,16 @@ module.exports = async (req, res) => {
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min),
-        to_line: parseInt(payload.max),
+        from_line: 2,
+        to_line: 9999999,
       })
     );
 
     const requests = [];
     dataStream.on("data", async function (row) {
-      const repo_slug = row[1];
-      const project_key = row[2];
+      const repo_slug = row[0];
 
       requests.push({
-        project_key: project_key,
         repo_slug: repo_slug,
       });
     });
@@ -39,34 +37,43 @@ module.exports = async (req, res) => {
       await Promise.all(requests);
 
       for (let index = 0; index < requests.length; index++) {
-        const project_key = requests[index].project_key;
         const repo_slug = requests[index].repo_slug;
 
-        const reviewer = await axios.get(
-          `http://${payload.server}/rest/default-reviewers/latest/projects/${project_key}/repos/${repo_slug}/conditions`,
-          {
-            headers,
+        let start = 1;
+        let isLastPage = false;
+
+        while (isLastPage === false) {
+          const apiUrl = `http://api.bitbucket.org/2.0/repositories/${payload.workspace}/${repo_slug}/default-reviewers?pagelen=100&page=${start}`;
+
+          const reviewer = await axios.get(apiUrl, { headers });
+
+          const size = Math.ceil(reviewer.data.size / 100);
+
+          console.log(`Size: ${size}`);
+
+          if (start === size || size === 0) {
+            isLastPage = true;
+          } else {
+            start += 1;
           }
-        );
 
+          const r = reviewer.data.values;
+          console.log(`${r.length} Reviewer in ${repo_slug}`);
 
-        const r = reviewer.data;
-        console.log(repo_slug);
-
-        if (r.length !== 0) {
-          for (let i = 0; i < r[0].reviewers.length; i++) {
-            const userParse = r[0].reviewers[i];
-            const userEmail = userParse.emailAddress;
-            const userDisplayName = userParse.displayName;
-            const userName = userParse.name;
-            const dataAll = {
-              name: userName,
-              email: userEmail,
-              display_name: userDisplayName,
-              project_key: project_key,
-              repo_slug: repo_slug,
-            };
-            data.push(dataAll);
+          if (r.values.length !== 0) {
+            for (let i = 0; i < r.values.length; i++) {
+              const userParse = r.values[i].user;
+              const username = userParse.username;
+              const userDisplayName = userParse.display_name;
+              const useruuid = userParse.uuid;
+              const dataR = {
+                username: username,
+                displayName: userDisplayName,
+                uuid: useruuid,
+                repo_slug: repo_slug,
+              };
+              data.push(dataR);
+            }
           }
         }
       }

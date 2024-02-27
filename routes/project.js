@@ -6,7 +6,7 @@ const projectHandler = require("./handler/project");
 router.post("/cloud/get-all", projectHandler.getAllCloud);
 router.post("/server/get-all", projectHandler.getAll);
 router.post("/server/permissions", projectHandler.getProjectPerm);
-router.post("/cloud/permissions", projectHandler.getProjectCloud);
-router.post("/server/rename", projectHandler.renameProjectKey);
+router.post("/cloud/permissions", projectHandler.getProjectPermCloud);
+router.post("/server/default-reviewers", projectHandler.getDefaultReviewers);
 
 module.exports = router;

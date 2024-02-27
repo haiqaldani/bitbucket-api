@@ -1,15 +1,17 @@
-const check = require("./checkRepository");
 const getAllCloud = require("./getListRepoCloud");
 const getAll = require("./getListRepo");
 const getBranchPerm = require("./getBranchPermissions");
 const getRepoPerm = require("./getPermissionsRepo");
 const getRepoPermCloud = require("./getPermissionsRepoCloud");
 const getDefaultRev = require("./getDefaultReviewers");
-const assignProjectPermissions = require("./assignProjectPermissions");
+const getDefaultRevCloud = require("./getDefaultReviewersCloud");
+const assignProjectPerm = require("./assignProjectPermissions");
+const assignProjectPermCloud = require("./assignProjectPermissionsCloud");
 const assignBranch = require("./assignBranchPermissions");
+const changeSlug = require("./changeSlugRepository");
+const checkBranchPermission = require("./checkBranchPermissions");
 
 module.exports = {
-  check,
   getAll,
   getAllCloud,
   getBranchPerm,
@@ -17,6 +19,10 @@ module.exports = {
   getDefaultRev,
   getRepoPermCloud,
   assignBranch,
-  assignProjectPermissions
+  assignProjectPerm,
+  assignProjectPermCloud,
+  getDefaultRevCloud,
+  changeSlug,
+  checkBranchPermission,
 
 };

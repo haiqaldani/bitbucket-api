@@ -19,7 +19,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/", indexRouter);
-app.use("/users", userRouter);
+app.use("/user", userRouter);
 app.use("/repository", repoRouter);
 app.use("/project", projectRouter);
 app.use("/addon", addonRouter);

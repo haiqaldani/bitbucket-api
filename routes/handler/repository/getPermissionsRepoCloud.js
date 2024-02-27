@@ -1,7 +1,7 @@
 const { default: axios } = require("axios");
 const fs = require("fs");
 const { parse } = require("csv-parse");
-const filePath = "ttbtrial1.csv";
+
 const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
@@ -15,11 +15,28 @@ module.exports = async (req, res) => {
 
     const data = [];
 
+    const filePath = `${payload.workspace}_repository.csv`;
+
+    let min;
+    let max;
+
+    if (!payload.min && !payload.max) {
+      min = 2;
+      max = 99999999;
+    } else {
+      min = payload.min;
+      max = payload.max;
+    }
+
+    const first = min - 1;
+    const last = max - 1;
+    console.log(`${first} - ${last}`);
+
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min),
-        to_line: parseInt(payload.max),
+        from_line: min,
+        to_line: max,
       })
     );
 
@@ -38,32 +55,41 @@ module.exports = async (req, res) => {
       for (let index = 0; index < requests.length; index++) {
         const repo_slug = requests[index].repo_slug;
 
-        const reviewer = await axios.get(
-          `https://api.bitbucket.org/2.0/repositories/${payload.workspace}/${repo_slug}/permissions-config/users`,
-          {
-            headers,
-          }
-        );
+        let start = 1;
+        let isLastPage = false;
 
-        console.log(repo_slug);
-        const r = reviewer.data;
+        while (isLastPage === false) {
+          const apiUrl = `https://api.bitbucket.org/2.0/repositories/${payload.workspace}/${repo_slug}/permissions-config/users?page=${start}&pagelen=25`;
 
-        if (r.values.length !== 0) {
-          for (let i = 0; i < r.values.length; i++) {
-            const userParse = r.values[i].user;
-            const userUuid = userParse.uuid;
-            const userDisplayName = userParse.display_name;
-            const userId = userParse.account_id;
-            const dataR = {
-              displayName: userDisplayName,
-              uuid: userUuid,
-              accountId: userId,
-              repo_slug: repo_slug,
-              permission: r.values[i].permission,
-            };
-            data.push(dataR);
+          const reviewer = await axios.get(apiUrl, { headers });
+
+          const size = Math.ceil(reviewer.data.size / 100);
+
+          if (start === size || size === 0) {
+            isLastPage = true;
+          } else {
+            start += 1;
           }
 
+          console.log(`Repo: ${repo_slug} = Number ${index + 1} size ${reviewer.data.size} page ${size}`);
+          const r = reviewer.data;
+
+          if (r.values.length !== 0) {
+            for (let i = 0; i < r.values.length; i++) {
+              const userParse = r.values[i].user;
+              const userUuid = userParse.uuid;
+              const userDisplayName = userParse.display_name;
+              const userId = userParse.account_id;
+              const dataR = {
+                displayName: userDisplayName,
+                uuid: userUuid,
+                accountId: userId,
+                repo_slug: repo_slug,
+                permission: r.values[i].permission,
+              };
+              data.push(dataR);
+            }
+          }
         }
       }
 
@@ -72,11 +98,19 @@ module.exports = async (req, res) => {
       if (data.length !== 0) {
         const csvData = await parseAsync(data);
 
-        fs.writeFileSync(
-          `permission_repos_cloud_${payload.min}-${payload.max}.csv`,
-          csvData,
-          "utf-8"
-        );
+        if (payload.batch) {
+          fs.writeFileSync(
+            `${payload.workspace}_permission_repos_${payload.batch}.csv`,
+            csvData,
+            "utf-8"
+          );
+        } else {
+          fs.writeFileSync(
+            `${payload.workspace}_permission_project.csv`,
+            csvData,
+            "utf-8"
+          );
+        }
 
         return res.status(200).json({
           status: "Success",

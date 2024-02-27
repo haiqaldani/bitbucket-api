@@ -6,7 +6,7 @@ const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
   const payload = req.body;
-  const filePath = `${payload.workspace}_project.csv`;
+  const filePath = `onprem_project.csv`;
 
   try {
     const headers = {
@@ -16,17 +16,23 @@ module.exports = async (req, res) => {
 
     const data = [];
 
+    let userData;
+
+    if (payload.workspace) {
+      userData = await readUser(`${payload.workspace}_user.csv`);
+    }
+
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min),
-        to_line: parseInt(payload.max),
+        from_line: 2,
+        to_line: 9999999,
       })
     );
 
     const requests = [];
     dataStream.on("data", async function (row) {
-      const project_key = row[3];
+      const project_key = row[0];
 
       requests.push({
         project_key: project_key,
@@ -39,41 +45,56 @@ module.exports = async (req, res) => {
       for (let index = 0; index < requests.length; index++) {
         const project_key = requests[index].project_key;
 
-        const reviewer = await axios.get(
-          `http://${payload.server}/rest/api/latest/projects/${project_key}/permissions/users?limit=100`,
-          {
-            headers,
+        let start = 0;
+        let isLastPage = false;
+
+        while (isLastPage === false) {
+          const apiUrl = `http://${payload.server}/rest/api/latest/projects/${project_key}/permissions/users?start=${start}&limit=100`;
+
+          const reviewer = await axios.get(apiUrl, { headers });
+
+          if (reviewer.data.isLastPage === true) {
+            isLastPage = true;
+          } else {
+            start += 100;
           }
-        );
 
-        console.log(project_key);
+          console.log(`Project Permission: ${project_key}`);
 
-        const r = reviewer.data;
+          const r = reviewer.data;
 
-        if (r.values.length !== 0) {
-          for (let i = 0; i < r.values.length; i++) {
-            const userParse = r.values[i].user;
-            const userEmail = userParse.emailAddress;
-            const userDisplayName = userParse.displayName;
-            const userName = userParse.name;
-            const dataR = {
-              name: userName,
-              email: userEmail,
-              displayName: userDisplayName,
-              project_key: project_key,
-              permission: r.values[i].permission,
-            };
-            data.push(dataR);
+          if (r.values.length !== 0) {
+            for (let i = 0; i < r.values.length; i++) {
+              let resultUser;
+              if (userData != null) {
+                resultUser = userData.find(
+                  (item) => item.name === r.values[i].user.displayName
+                );
+              }
+
+              const userParse = r.values[i].user;
+              const userEmail = userParse.emailAddress;
+              const userDisplayName = userParse.displayName;
+              const userName = userParse.name;
+              const dataR = {
+                name: userName,
+                email: userEmail,
+                displayName: userDisplayName,
+                project_key: project_key,
+                permission: r.values[i].permission,
+                uuid: resultUser?.uuid || null,
+                account_id: resultUser?.account_id || null,
+              };
+              data.push(dataR);
+            }
           }
         }
       }
 
-      // console.log(data);
-
       if (data.length !== 0) {
         const csvData = await parseAsync(data);
 
-        fs.writeFileSync(`permission_project_${payload.workspace}.csv`, csvData, "utf-8");
+        fs.writeFileSync(`permission_project_onprem.csv`, csvData, "utf-8");
 
         return res.status(200).json({
           status: "Success",
@@ -100,5 +121,37 @@ module.exports = async (req, res) => {
       statusCode: 400,
       message: error.message,
     });
+  }
+
+  async function readUser(filePath) {
+    const userData = [];
+    const dataStream = fs.createReadStream(filePath).pipe(
+      parse({
+        delimiter: ",",
+        from_line: 2,
+        to_line: 999999,
+      })
+    );
+
+    dataStream.on("data", function (row) {
+      const name = row[0];
+      const uuid = row[3];
+      const account_id = row[4];
+
+      // Map CSV data to your desired structure
+      userData.push({
+        name: name,
+        uuid: uuid,
+        account_id: account_id,
+      });
+    });
+
+    await new Promise((resolve) => {
+      dataStream.on("end", function () {
+        resolve();
+      });
+    });
+
+    return userData;
   }
 };

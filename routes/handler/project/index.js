@@ -1,15 +1,14 @@
-const getProjectPerm = require("./getPermissionsProject");
-const getProjectCloud = require("./getPermissionsProjectCloud");
-const getDefaultRev = require("./getDefaultReviewers");
 const getAllCloud = require("./getListProjectCloud");
 const getAll = require("./getListProject");
-const renameProjectKey = require("./renameProjectKey");
+const getProjectPerm = require("./getPermissionsProject");
+const getProjectPermCloud = require("./getPermissionsProjectCloud");
+const getDefaultReviewers = require("./getDefaultReviewers");
 
 module.exports = {
-  getAll,
-  getProjectPerm,
-  getDefaultRev,
-  getProjectCloud,
-  renameProjectKey,
-  getAllCloud
+getAllCloud,
+getAll,
+getProjectPerm,
+getProjectPermCloud,
+getDefaultReviewers
+
 };

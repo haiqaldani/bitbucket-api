@@ -21,6 +21,8 @@ module.exports = async (req, res) => {
       }
     );
 
+    console.log(data)
+
     allData.push(...data.data.values);
 
     const dataPage = Math.ceil(data.data.size / 100);
@@ -42,7 +44,7 @@ module.exports = async (req, res) => {
     }
 
     for (let index = 0; index < allData.length; index++) {
-      storeData.push(allData[index].user) 
+      storeData.push(allData[index].user)
     }
 
     const filePath = `${payload.workspace}_user.csv`;

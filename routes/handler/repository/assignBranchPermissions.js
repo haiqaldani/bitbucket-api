@@ -6,9 +6,23 @@ const { parseAsync } = require("json2csv");
 
 module.exports = async (req, res) => {
   const payload = req.body;
-  const repositoryFilePath = `onprem_repository.csv`;
   // const repositoryFilePath = `${payload.workspace}_repository.csv`;
-  const branchFilePath = `${payload.workspace}_branch.csv`;
+
+  let filePath;
+
+  if (payload.batch === false) {
+    filePath = `onprem_branch.csv`;
+  } else {
+    filePath = `onprem_branch_${payload.batch}.csv`;
+  }
+
+  let repositoryFilePath
+
+  if (payload.batch === false) {
+    repositoryFilePath = `onprem_repository.csv`;
+  } else {
+    repositoryFilePath = `onprem_repository_${payload.batch}.csv`;
+  }
 
   try {
     const headers = {
@@ -19,19 +33,19 @@ module.exports = async (req, res) => {
 
     const dataAll = [];
 
-    const repositoryData = await readRepository(repositoryFilePath, 2, 9999999);
-    const branchData = await readBranch(branchFilePath, 2, 9999999);
+    const repositoryData = await readRepository(repositoryFilePath);
+    const branchData = await readBranch(filePath);
 
     for (let i = 0; i < repositoryData.length; i++) {
       const repo_slug = repositoryData[i].repo_slug;
 
-      console.log(repo_slug);
+      // console.log(repo_slug);
 
       const filteredData = branchData.filter(
         (item) => item.repo_slug === repo_slug
       );
 
-      console.log(filteredData);
+      // console.log(filteredData);
 
       if (filteredData.length > 0) {
         const result = await modelSelection(
@@ -47,13 +61,13 @@ module.exports = async (req, res) => {
 
     const csvData = await parseAsync(dataAll);
 
-    fs.writeFileSync(`AllBranch_${payload.workspace}.csv`, csvData, "utf-8");
+    fs.writeFileSync(`onprem_branch_to_cloud_${payload.batch}.csv`, csvData, "utf-8");
 
     return res.status(200).json({
       status: "Success",
       statusCode: 200,
       message: "Successfully assign Branch",
-      data: dataAll,
+      // data: dataAll,
     });
   } catch (error) {
     if (error.code === "ECONNREFUSED") {
@@ -70,13 +84,13 @@ module.exports = async (req, res) => {
   }
 };
 
-async function readRepository(filePath, minLine, maxLine) {
+async function readRepository(filePath) {
   const repositoryData = [];
   const dataStream = fs.createReadStream(filePath).pipe(
     parse({
       delimiter: ",",
-      from_line: parseInt(minLine + 1),
-      to_line: parseInt(maxLine),
+      from_line: 2,
+      to_line: 9999999,
     })
   );
 
@@ -98,23 +112,23 @@ async function readRepository(filePath, minLine, maxLine) {
   return repositoryData;
 }
 
-async function readBranch(filePath, minLine, maxLine) {
+async function readBranch(filePath) {
   const branchData = [];
   const dataStream = fs.createReadStream(filePath).pipe(
     parse({
       delimiter: ",",
-      from_line: parseInt(minLine + 1),
-      to_line: parseInt(maxLine),
+      from_line: 2,
+      to_line: 999999,
     })
   );
 
   dataStream.on("data", function (row) {
-    const type = row[4];
-    const matcher = row[5];
-    const matcher_type = row[6];
-    const project_key = row[7];
-    const repo_slug = row[8];
-    const uuid = row[11];
+    const type = row[5];
+    const matcher = row[6];
+    const matcher_type = row[7];
+    const project_key = row[8];
+    const repo_slug = row[9];
+    const uuid = row[13];
 
     // Map CSV data to your desired structure
     branchData.push({
@@ -165,6 +179,8 @@ async function modelSelection(workspace, data, repo_slug, headers) {
     );
     result.push(...pattern);
   }
+
+  console.log(result)
 
   return result;
 }
@@ -258,53 +274,33 @@ async function runAPI(
     for (let i = 0; i < dataSelection.length; i++) {
       if (dataSelection[i].uuid !== "#N/A") {
         users.push({
-          uuid: dataSelection[i].uuid,
+          aid_id: dataSelection[i].uuid,
         });
       }
     }
 
     var data;
 
+    console.log("disini")
+
     if (index === 2 || index === 3) {
-      if (branch_match_kind === "glob") {
-        data = {
-          repo_slug: repo_slug,
-          kind: kind[index],
-          pattern: matcher,
-          branch_match_kind: branch_match_kind,
-          users: [],
-          groups: [],
-        };
-      } else {
-        data = {
-          repo_slug: repo_slug,
-          kind: kind[index],
-          branch_type: matcher,
-          branch_match_kind: branch_match_kind,
-          users: [],
-          groups: [],
-        };
-      }
+      data = {
+        repo_slug: repo_slug,
+        kind: kind[index],
+        pattern: matcher,
+        branch_match_kind: branch_match_kind,
+        users: [],
+        groups: [],
+      };
     } else {
-      if (branch_match_kind === "glob") {
-        data = {
-          repo_slug: repo_slug,
-          kind: kind[index],
-          pattern: matcher,
-          branch_match_kind: branch_match_kind,
-          users: users,
-          groups: [],
-        };
-      } else {
-        data = {
-          repo_slug: repo_slug,
-          kind: kind[index],
-          branch_type: matcher,
-          branch_match_kind: branch_match_kind,
-          users: users,
-          groups: [],
-        };
-      }
+      data = {
+        repo_slug: repo_slug,
+        kind: kind[index],
+        pattern: matcher,
+        branch_match_kind: branch_match_kind,
+        users: users,
+        groups: [],
+      };
     }
 
     // const run = await axios.post(
@@ -318,6 +314,6 @@ async function runAPI(
     result.push(data);
   }
 
-  // console.log(result);
+  console.log(result);
   return result;
 }

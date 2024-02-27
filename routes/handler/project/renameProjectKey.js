@@ -18,8 +18,8 @@ module.exports = async (req, res) => {
     const dataStream = fs.createReadStream(filePath).pipe(
       parse({
         delimiter: ",",
-        from_line: parseInt(payload.min + 1),
-        to_line: parseInt(payload.max),
+        from_line: 2,
+        to_line: 9999999
       })
     );
 
